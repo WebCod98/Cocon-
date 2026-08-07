@@ -49,6 +49,7 @@ export function Onboarding() {
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   const myZone = useMemo(() => findCity(myCity)?.timeZone ?? localTimeZone(), [myCity]);
   const partnerZone = useMemo(() => findCity(partnerCity)?.timeZone ?? 'America/Toronto', [partnerCity]);
@@ -72,24 +73,31 @@ export function Onboarding() {
     setStep('code');
   };
 
-  const doJoin = () => {
-    const result = join({
+  const doJoin = async () => {
+    setJoining(true);
+    setJoinError(null);
+    const result = await join({
       loveCode: joinCode.trim(),
       myName: myName.trim(),
       myEmoji,
       myCity,
       myTimeZone: myZone,
     });
+    setJoining(false);
+
     if (result.ok) {
       setBurst((value) => value + 1);
       vibrate('success');
       setStep('permissions');
       return;
     }
+
     setJoinError(
       result.reason === 'full'
         ? 'Ce Cocon est déjà complet — deux personnes y sont déjà liées.'
-        : 'Aucun Cocon ne correspond à ce code sur cet appareil. Vérifiez les 6 chiffres.'
+        : result.reason === 'offline'
+          ? 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'
+          : 'Aucun Cocon ne correspond à ce code. Vérifiez les 6 chiffres.'
     );
   };
 
@@ -299,9 +307,9 @@ export function Onboarding() {
             </p>
           )}
           <NextButton
-            label="Nous lier"
-            disabled={joinCode.length !== 6 || !myName.trim()}
-            onClick={doJoin} />
+            label={joining ? 'Liaison en cours…' : 'Nous lier'}
+            disabled={joining || joinCode.length !== 6 || !myName.trim()}
+            onClick={() => void doJoin()} />
         </StepCard>
       )}
 

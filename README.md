@@ -110,7 +110,8 @@ de l'autre.
 | Animations | Framer Motion |
 | Icônes | lucide-react |
 | Routage | react-router-dom |
-| Dépendances runtime | **5** — aucune librairie de state, de charts ou de composants |
+| Synchronisation | Supabase (Realtime + RPC), chargé dynamiquement et optionnel |
+| Dépendances runtime | **6** — aucune librairie de state, de charts ou de composants |
 
 ```
 src/
@@ -118,12 +119,14 @@ src/
     companions/     Les corps SVG du pingouin, de la chatte et du chien
     habitats/       Les trois décors + la scène interactive
   data/             Compagnons, villes, boutique, catalogue des jeux, contenus
-  lib/              Persistance, synchronisation, haptique, notifications, PWA, média
+  lib/              Persistance, synchronisation, cloud, haptique, notifications, PWA, média
   pages/            Une page par écran
     games/          Les 15 mini-jeux, chargés à la demande
   state/            CoupleContext — le magasin partagé
   types/            Le modèle de données complet
   utils/            Temps (fuseaux, compteur d'amour) et texte
+supabase/
+  schema.sql        La base de données, à coller dans l'éditeur SQL de Supabase
 ```
 
 ### Le modèle de données
@@ -138,21 +141,24 @@ Deux objets, et la frontière entre les deux est nette :
 
 ### La synchronisation
 
-Le document du couple est diffusé sur un `BroadcastChannel` nommé d'après le Code d'Amour, avec un
-repli sur l'événement `storage`. La résolution de conflit est un dernier-écrivain-gagne sur un numéro
-de révision. Concrètement : **deux fenêtres du même navigateur se synchronisent en temps réel.**
+Tout passe par une interface unique, `SyncTransport` (`publish` / `subscribe` / `close`), et deux
+implémentations qui se combinent :
 
-Pour synchroniser deux téléphones réellement distants, il faut un serveur. Tout est prévu pour :
-`src/lib/sync.ts` définit une interface `SyncTransport` à trois méthodes
-(`publish` / `subscribe` / `close`). Brancher Supabase Realtime, Firebase ou un WebSocket maison
-revient à en fournir une autre implémentation — le reste de l'application n'a pas à changer.
+- **`createBroadcastTransport`** — `BroadcastChannel` nommé d'après le Code d'Amour, avec repli sur
+  l'événement `storage`. Couvre les onglets d'un même navigateur, instantanément et hors-ligne.
+- **`createSupabaseTransport`** — Realtime Broadcast pour l'instantané, plus une écriture en base
+  débattue de 500 ms pour la durabilité. Ne s'active que si les variables d'environnement Supabase
+  sont présentes ; le client `@supabase/supabase-js` est importé dynamiquement, donc absent du bundle
+  initial des installations qui ne l'utilisent pas.
 
-Deux autres points suivent la même logique, et sont volontairement explicites plutôt que simulés en
-douce :
+La résolution de conflit est un dernier-écrivain-gagne sur le numéro de révision, appliqué des deux
+côtés : côté client dans `mergeDoc`, côté serveur dans `cocon_push`.
+
+Deux autres points restent volontairement explicites plutôt que simulés en douce :
 
 - **Notifications.** L'app utilise l'API `Notification` locale, relayée par le service worker. Les
   vraies notifications *push* (qui réveillent le téléphone app fermée) demandent un serveur détenant
-  les clés VAPID.
+  les clés VAPID — ce que le plan gratuit ne couvre pas.
 - **Météo.** Elle est dérivée de la ville et du jour, donc identique et stable chez les deux
   partenaires, mais ce n'est pas une vraie météo. `weatherFor()` dans `src/data/cities.ts` est le
   seul point à remplacer par un appel à un service météo.
@@ -162,7 +168,8 @@ douce :
 Sans second appareil, l'app resterait figée en attente. Un module optionnel
 (`src/state/useDemoPartner.ts`) fait donc réagir le/la partenaire : il vote pour la mascotte, répond
 aux mots doux, s'occupe de l'animal, joue son tour dans les jeux asynchrones. **Il est signalé
-comme tel et se désactive dans Réglages.**
+comme tel et se désactive dans Réglages** — et il se tait automatiquement dès qu'un vrai partenaire
+est relié par le serveur, pour ne jamais interférer avec une vraie partie.
 
 ### Le thème
 
@@ -193,34 +200,36 @@ anciens sont lâchés en premier, puisqu'ils sont de toute façon éphémères.
 
 ## Déploiement
 
-L'app est **100 % statique** : une fois construite, ce n'est qu'un dossier de fichiers. Aucun serveur
-à louer, aucune base de données — donc un hébergement gratuit suffit, et le restera.
+**👉 Guide complet, clic par clic : [`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — 20 minutes, 0 €, aucune
+ligne de code à écrire.
+
+En résumé :
+
+| | Rôle | Offre gratuite |
+| --- | --- | --- |
+| **Netlify** | héberge l'application | 100 Go de trafic / mois |
+| **Supabase** | synchronise les deux téléphones | 500 Mo de base, 5 Go / mois |
 
 Les fichiers de configuration sont déjà dans le dépôt (`netlify.toml`, `vercel.json`,
-`public/_redirects`) : il n'y a **rien à régler** dans l'interface de l'hébergeur.
+`public/_redirects`, `supabase/schema.sql`) : rien à régler dans les interfaces.
 
-| Hébergeur | Adresse offerte | À savoir |
-| --- | --- | --- |
-| **Netlify** | `votre-nom.netlify.app` | 100 Go de trafic par mois, usage commercial autorisé |
-| **Cloudflare Pages** | `votre-nom.pages.dev` | Trafic illimité, 500 constructions par mois |
-| **Vercel** | `votre-nom.vercel.app` | Le plan gratuit interdit l'usage commercial |
+### Sans Supabase
 
-La marche à suivre, sans ligne de commande : créer un compte, cliquer sur « importer depuis GitHub »,
-choisir ce dépôt, laisser les réglages détectés, déployer. Chaque `git push` redéploie ensuite tout
-seul.
+Si vous ne renseignez pas `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`, l'app fonctionne
+exactement comme avant : tout reste sur l'appareil, et la synchronisation se limite aux onglets d'un
+même navigateur. Aucune erreur, aucun écran cassé — le mode est simplement affiché comme « local »
+dans les Réglages.
 
-Le HTTPS est fourni gratuitement dans les trois cas — c'est indispensable, une PWA ne s'installe pas
-sans lui.
+### Avec Supabase
 
-### ⚠️ Ce que le déploiement ne fait pas
+Les deux partenaires partagent réellement le même Cocon, en temps réel. Le schéma
+[`supabase/schema.sql`](supabase/schema.sql) verrouille la table (RLS sans policy, droits directs
+retirés) et n'expose que quatre fonctions `SECURITY DEFINER`. Le code à 6 chiffres ne sert qu'à
+échanger, **une seule fois**, un secret long et aléatoire ; c'est ce secret qui protège ensuite
+lectures, écritures et canal temps réel.
 
-Mettre l'app en ligne ne relie pas les deux téléphones. Comme expliqué plus haut, la synchronisation
-passe aujourd'hui par le navigateur : chaque partenaire aurait **son propre Cocon**, sans voir les
-messages de l'autre.
-
-Pour un vrai partage entre deux appareils distants, il faut brancher un serveur de synchronisation
-sur l'interface `SyncTransport`. Supabase propose un plan gratuit qui suffit largement (base
-PostgreSQL, Realtime, authentification), mais cette étape demande du développement.
+Ces garanties ont été testées contre une vraie base PostgreSQL : lecture directe, mauvais secret,
+écriture non autorisée et réutilisation d'un code sont toutes refusées.
 
 ---
 
@@ -230,5 +239,8 @@ Vérifié à chaque modification : `tsc --noEmit` sans erreur, `vite build` réu
 Un parcours navigateur complet a été rejoué de bout en bout — inscription, appairage, adoption,
 rituels, agenda, surprises, **les 15 jeux**, boutique, mode nuit et persistance après rechargement.
 
-Ce qu'il reste à brancher pour une mise en production : le serveur de synchronisation, les
-notifications push et un vrai service météo — les trois points d'extension décrits plus haut.
+Le schéma Supabase a été rejoué contre une base PostgreSQL 16 réelle : création, appairage,
+lecture, écriture, ménage, et les quatre tentatives d'accès non autorisé qui doivent échouer.
+
+Ce qu'il reste à brancher pour aller plus loin : les notifications push et un vrai service météo —
+les deux points d'extension décrits plus haut.

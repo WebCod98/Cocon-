@@ -1,5 +1,14 @@
 import { useState, type ReactNode } from 'react';
-import { BellIcon, CopyIcon, CheckIcon, LogOutIcon, TrashIcon, UsersIcon } from 'lucide-react';
+import {
+  BellIcon,
+  CheckIcon,
+  CloudIcon,
+  CloudOffIcon,
+  CopyIcon,
+  LogOutIcon,
+  TrashIcon,
+  UsersIcon,
+} from 'lucide-react';
 import { SectionCard } from '../components/SectionCard';
 import { Sheet } from '../components/Sheet';
 import { useCouple } from '../state/CoupleContext';
@@ -15,7 +24,7 @@ const themes: { id: ThemeMode; label: string; hint: string }[] = [
 ];
 
 export function Settings() {
-  const { doc, me, them, settings, patchSettings, setTheme, leave, hardReset } = useCouple();
+  const { doc, me, them, settings, cloud, patchSettings, setTheme, leave, hardReset } = useCouple();
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -68,10 +77,33 @@ export function Settings() {
         </div>
         <p className="mt-2 flex items-start gap-2 rounded-2xl bg-frost px-3 py-2 text-[11px] leading-snug text-muted">
           <UsersIcon size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-          La liaison passe par le stockage partagé du navigateur : ouvrez Cocon dans un second onglet ou une
-          seconde fenêtre, choisissez « J’ai déjà un code » et saisissez ces 6 chiffres. Tout se synchronise
-          alors en direct entre les deux.
+          {cloud
+            ? 'Sur son téléphone, votre partenaire ouvre Cocon, choisit « J’ai déjà un code » et saisit ces 6 chiffres. Le code ne fonctionne qu’une seule fois : une fois la liaison faite, il devient inutile.'
+            : 'La liaison passe par le stockage du navigateur : ouvrez Cocon dans un second onglet, choisissez « J’ai déjà un code » et saisissez ces 6 chiffres.'}
         </p>
+      </SectionCard>
+
+      <SectionCard title="Synchronisation" subtitle="Ce que vos deux appareils partagent">
+        <div
+          className={`flex items-start gap-3 rounded-3xl border px-3 py-3 ${
+            cloud ? 'border-mint/50 bg-mint/15' : 'border-ice bg-frost'
+          }`}>
+          <span className={cloud ? 'text-mint' : 'text-muted'} aria-hidden="true">
+            {cloud ? <CloudIcon size={18} /> : <CloudOffIcon size={18} />}
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-ink">
+              {cloud ? 'Synchronisation activée' : 'Mode local'}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted">
+              {cloud
+                ? `Vos mots, photos et parties voyagent entre vos deux téléphones en temps réel. ${
+                    doc.paired ? 'Les deux appareils sont reliés.' : 'En attente du second appareil.'
+                  }`
+                : 'Tout reste sur cet appareil. La synchronisation ne fonctionne qu’entre les onglets de ce navigateur — votre partenaire aurait son propre Cocon.'}
+            </p>
+          </div>
+        </div>
       </SectionCard>
 
       <SectionCard title="Apparence" subtitle="Le Mode Sommeil Étoilé bascule toute l’interface">
@@ -125,9 +157,14 @@ export function Settings() {
 
         <Toggle
           label="Partenaire de démonstration"
-          hint="Fait réagir votre partenaire pour explorer l’app en solo"
+          hint={
+            cloud && doc.paired
+              ? 'Inactif : votre vrai partenaire est connecté'
+              : 'Fait réagir votre partenaire pour explorer l’app en solo'
+          }
           icon={<UsersIcon size={16} aria-hidden="true" />}
-          checked={settings.demoPartner}
+          checked={settings.demoPartner && !(cloud && doc.paired)}
+          disabled={cloud && doc.paired}
           onChange={() => patchSettings({ demoPartner: !settings.demoPartner })} />
       </SectionCard>
 

@@ -22,7 +22,19 @@ import type {
   ThemeMode,
 } from '../types';
 import { KEYS, readJSON, removeKey, writeJSON } from '../lib/persist';
-import { createBroadcastTransport, mergeDoc, type SyncTransport } from '../lib/sync';
+import {
+  createBroadcastTransport,
+  createCompositeTransport,
+  mergeDoc,
+  type SyncTransport,
+} from '../lib/sync';
+import {
+  claimRemote,
+  cloudEnabled,
+  createRemote,
+  createSupabaseTransport,
+  makeSecret,
+} from '../lib/cloud';
 import { makeLoveCode, uid } from '../lib/id';
 import { setHapticsEnabled, vibrate } from '../lib/haptics';
 import { SCHEMA, createDoc, demoSeed } from '../data/seed';
@@ -46,6 +58,8 @@ const defaultSettings: DeviceSettings = {
 interface Session {
   loveCode: string;
   slot: PartnerSlot;
+  /** Secret partage, present uniquement quand Supabase est configure. */
+  secret?: string;
 }
 
 /* --- Parametres d'inscription -------------------------------------------- */
@@ -71,7 +85,7 @@ export interface JoinInput {
   myTimeZone: string;
 }
 
-export type JoinResult = { ok: true } | { ok: false; reason: 'not-found' | 'full' };
+export type JoinResult = { ok: true } | { ok: false; reason: 'not-found' | 'full' | 'offline' };
 
 /* --- API exposee --------------------------------------------------------- */
 
@@ -92,7 +106,9 @@ interface CoupleApi {
 
   /* cycle de vie */
   signup: (input: SignupInput) => string;
-  join: (input: JoinInput) => JoinResult;
+  join: (input: JoinInput) => Promise<JoinResult>;
+  /** Vrai quand un serveur de synchronisation est configure. */
+  cloud: boolean;
   leave: () => void;
   hardReset: () => void;
 
@@ -219,6 +235,8 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<DeviceSettings>(defaultSettings);
   const [transientMood, setTransientMood] = useState<PinguMood | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** Secret du couple : present des que Supabase est configure et appairé. */
+  const [secret, setSecret] = useState<string | null>(null);
   const moodTimer = useRef<number | null>(null);
   const transport = useRef<SyncTransport | null>(null);
   const docRef = useRef<CoupleDoc | null>(null);
@@ -234,6 +252,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
 
     const session = readJSON<Session>(KEYS.session);
     if (session?.loveCode) {
+      if (session.secret) setSecret(session.secret);
       const stored = readJSON<CoupleDoc>(KEYS.doc(session.loveCode));
       if (stored?.schema === SCHEMA) {
         setDoc(pruneDoc(applyDecay(stored)));
@@ -249,7 +268,13 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       transport.current.close();
       transport.current = null;
     }
-    const channel = createBroadcastTransport(doc.loveCode);
+    // Toujours les onglets du meme navigateur ; en plus, le serveur quand il
+    // est configure et que l'appairage a fourni le secret.
+    const channel = createCompositeTransport(
+      secret && cloudEnabled
+        ? [createBroadcastTransport(doc.loveCode), createSupabaseTransport(doc, secret)]
+        : [createBroadcastTransport(doc.loveCode)]
+    );
     transport.current = channel;
     const unsubscribe = channel.subscribe((incoming) => {
       setDoc((current) => {
@@ -264,9 +289,10 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       channel.close();
       transport.current = null;
     };
-    // On ne se rebranche que si le couple change, pas a chaque revision.
+    // On ne se rebranche que si le couple ou le secret change, pas a chaque
+    // revision du document.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.loveCode]);
+  }, [doc?.loveCode, secret]);
 
   /* --- Mutation centrale ------------------------------------------------- */
   const update = useCallback((mutate: (current: CoupleDoc) => CoupleDoc) => {
@@ -404,7 +430,16 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       if (input.withDemoContent) fresh = demoSeed(fresh);
 
       persistDoc(fresh);
-      writeJSON(KEYS.session, { loveCode, slot: 'one' } satisfies Session);
+
+      // Quand un serveur est configure, le couple y est cree immediatement :
+      // c'est ce qui permettra a l'autre telephone de le retrouver avec le code.
+      const coupleSecret = cloudEnabled ? makeSecret() : undefined;
+      writeJSON(KEYS.session, { loveCode, slot: 'one', secret: coupleSecret } satisfies Session);
+      if (coupleSecret) {
+        setSecret(coupleSecret);
+        void createRemote(fresh, coupleSecret);
+      }
+
       patchSettings({ slot: 'one' });
       setDoc(fresh);
       return loveCode;
@@ -413,10 +448,33 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
   );
 
   const join = useCallback(
-    (input: JoinInput): JoinResult => {
-      const stored = readJSON<CoupleDoc>(KEYS.doc(input.loveCode));
-      if (!stored || stored.schema !== SCHEMA) return { ok: false, reason: 'not-found' };
-      if (stored.paired) return { ok: false, reason: 'full' };
+    async (input: JoinInput): Promise<JoinResult> => {
+      let stored: CoupleDoc | null = null;
+      let coupleSecret: string | undefined;
+
+      if (cloudEnabled) {
+        // Le code a 6 chiffres est echange contre le secret du couple. Cote
+        // serveur l'operation est a usage unique : un code deja consomme ne
+        // renvoie plus rien.
+        const claimed = await claimRemote(input.loveCode);
+        if (claimed.ok) {
+          stored = claimed.doc;
+          coupleSecret = claimed.secret;
+        } else if (claimed.reason === 'offline') {
+          return { ok: false, reason: 'offline' };
+        }
+      }
+
+      // Repli — et seul chemin sans serveur : le couple cree dans un autre
+      // onglet du meme navigateur.
+      if (!stored) {
+        const local = readJSON<CoupleDoc>(KEYS.doc(input.loveCode));
+        if (!local || local.schema !== SCHEMA) return { ok: false, reason: 'not-found' };
+        if (local.paired) return { ok: false, reason: 'full' };
+        stored = local;
+      }
+
+      if (stored.schema !== SCHEMA) return { ok: false, reason: 'not-found' };
 
       const joined: CoupleDoc = {
         ...stored,
@@ -447,11 +505,15 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       };
 
       const saved = persistDoc(joined);
-      writeJSON(KEYS.session, { loveCode: input.loveCode, slot: 'two' } satisfies Session);
+      writeJSON(
+        KEYS.session,
+        { loveCode: input.loveCode, slot: 'two', secret: coupleSecret } satisfies Session
+      );
+      if (coupleSecret) setSecret(coupleSecret);
       patchSettings({ slot: 'two' });
       setDoc(saved);
-      // Le canal n'est pas encore ouvert pour ce couple : on diffuse via
-      // l'ecriture localStorage, que l'autre onglet recoit par `storage`.
+      // Le canal n'est pas encore ouvert pour ce couple : la premiere ecriture
+      // le remonte, et l'autre onglet la recoit aussi via l'evenement `storage`.
       return { ok: true };
     },
     [patchSettings]
@@ -459,6 +521,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
 
   const leave = useCallback(() => {
     removeKey(KEYS.session);
+    setSecret(null);
     setDoc(null);
     patchSettings({ onboarded: false });
   }, [patchSettings]);
@@ -468,6 +531,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
     if (current) removeKey(KEYS.doc(current.loveCode));
     removeKey(KEYS.session);
     removeKey(KEYS.settings);
+    setSecret(null);
     setDoc(null);
     setSettings(defaultSettings);
   }, []);
@@ -998,6 +1062,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       toast,
       signup,
       join,
+      cloud: cloudEnabled && Boolean(secret),
       leave,
       hardReset,
       patchSettings,
@@ -1055,6 +1120,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       toast,
       signup,
       join,
+      secret,
       leave,
       hardReset,
       patchSettings,

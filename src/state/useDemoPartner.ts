@@ -20,11 +20,15 @@ const replies = [
  * mascotte. Il se desactive dans Reglages.
  */
 export function useDemoPartner() {
-  const { doc, settings, theirSlot, applyDoc } = useSession();
+  const { doc, settings, theirSlot, applyDoc, cloud } = useSession();
   const timers = useRef<number[]>([]);
   const repliedTo = useRef<string | null>(null);
 
-  const enabled = settings.demoPartner && Boolean(doc);
+  // Des qu'un vrai partenaire est relie via le serveur, le partenaire de
+  // demonstration se tait : il n'a plus lieu d'etre, et il perturberait la
+  // vraie partie.
+  const realPartner = cloud && Boolean(doc?.paired);
+  const enabled = settings.demoPartner && Boolean(doc) && !realPartner;
   const myVote = doc?.votes[settings.slot] ?? null;
   const theirVote = doc?.votes[theirSlot] ?? null;
   const latestMyNote = doc?.notes.find((note) => note.author === settings.slot)?.id ?? null;

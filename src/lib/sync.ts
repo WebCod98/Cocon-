@@ -72,3 +72,25 @@ export function mergeDoc(local: CoupleDoc, incoming: CoupleDoc): CoupleDoc {
   if (incoming.rev === local.rev && incoming.updatedAt > local.updatedAt) return incoming;
   return local;
 }
+
+/**
+ * Combine plusieurs transports : le document part sur tous, et une mise a jour
+ * recue par n'importe lequel remonte a l'application.
+ *
+ * En pratique : BroadcastChannel pour les onglets du meme navigateur (instantane,
+ * fonctionne hors-ligne) + Supabase pour les deux telephones distants.
+ */
+export function createCompositeTransport(transports: SyncTransport[]): SyncTransport {
+  return {
+    publish(doc) {
+      transports.forEach((transport) => transport.publish(doc));
+    },
+    subscribe(handler) {
+      const unsubscribes = transports.map((transport) => transport.subscribe(handler));
+      return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+    },
+    close() {
+      transports.forEach((transport) => transport.close());
+    },
+  };
+}
