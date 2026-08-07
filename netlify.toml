@@ -1,0 +1,27 @@
+# Configuration Netlify — aucune option à régler dans l'interface.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Cocon est une application à page unique : toute URL inconnue doit servir
+# index.html, sinon rafraîchir /agenda ou /arcade renvoie une 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Le service worker ne doit jamais être servi depuis un cache périmé,
+# sinon une mise à jour de l'app peut mettre des jours à arriver.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

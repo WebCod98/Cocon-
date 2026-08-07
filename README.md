@@ -191,6 +191,39 @@ anciens sont lâchés en premier, puisqu'ils sont de toute façon éphémères.
 
 ---
 
+## Déploiement
+
+L'app est **100 % statique** : une fois construite, ce n'est qu'un dossier de fichiers. Aucun serveur
+à louer, aucune base de données — donc un hébergement gratuit suffit, et le restera.
+
+Les fichiers de configuration sont déjà dans le dépôt (`netlify.toml`, `vercel.json`,
+`public/_redirects`) : il n'y a **rien à régler** dans l'interface de l'hébergeur.
+
+| Hébergeur | Adresse offerte | À savoir |
+| --- | --- | --- |
+| **Netlify** | `votre-nom.netlify.app` | 100 Go de trafic par mois, usage commercial autorisé |
+| **Cloudflare Pages** | `votre-nom.pages.dev` | Trafic illimité, 500 constructions par mois |
+| **Vercel** | `votre-nom.vercel.app` | Le plan gratuit interdit l'usage commercial |
+
+La marche à suivre, sans ligne de commande : créer un compte, cliquer sur « importer depuis GitHub »,
+choisir ce dépôt, laisser les réglages détectés, déployer. Chaque `git push` redéploie ensuite tout
+seul.
+
+Le HTTPS est fourni gratuitement dans les trois cas — c'est indispensable, une PWA ne s'installe pas
+sans lui.
+
+### ⚠️ Ce que le déploiement ne fait pas
+
+Mettre l'app en ligne ne relie pas les deux téléphones. Comme expliqué plus haut, la synchronisation
+passe aujourd'hui par le navigateur : chaque partenaire aurait **son propre Cocon**, sans voir les
+messages de l'autre.
+
+Pour un vrai partage entre deux appareils distants, il faut brancher un serveur de synchronisation
+sur l'interface `SyncTransport`. Supabase propose un plan gratuit qui suffit largement (base
+PostgreSQL, Realtime, authentification), mais cette étape demande du développement.
+
+---
+
 ## État du projet
 
 Vérifié à chaque modification : `tsc --noEmit` sans erreur, `vite build` réussi, ESLint sans erreur.
