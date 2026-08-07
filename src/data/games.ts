@@ -1,0 +1,142 @@
+import type { GameCategory, GameMeta } from '../types';
+
+export const gameCategories: { id: GameCategory; label: string; emoji: string }[] = [
+  { id: 'quiz', label: 'Quiz & Connaissance', emoji: '🧠' },
+  { id: 'creative', label: 'Créativité & Rires', emoji: '🎨' },
+  { id: 'reflex', label: 'Réflexe & Compétition', emoji: '⚡' },
+  { id: 'mystery', label: 'Mystère & Logique', emoji: '🔮' },
+];
+
+/** Les 15 mini-jeux de l'Arcade du Couple. */
+export const games: GameMeta[] = [
+  {
+    id: 'qui-de-nous-deux',
+    title: 'Qui de nous deux ?',
+    category: 'quiz',
+    tagline: 'Votes secrets simultanés, révélation croisée.',
+    emoji: '🙋',
+    reward: 25,
+    async: true,
+  },
+  {
+    id: 'master-quiz',
+    title: 'Master-Quiz du Couple',
+    category: 'quiz',
+    tagline: 'Vos dates et vos détails, à choix multiples.',
+    emoji: '🎓',
+    reward: 30,
+  },
+  {
+    id: 'tu-preferes',
+    title: 'Tu préfères…',
+    category: 'quiz',
+    tagline: 'Des dilemmes drôles à départager.',
+    emoji: '🤔',
+    reward: 20,
+    async: true,
+  },
+  {
+    id: 'mots-croises',
+    title: 'Mots Croisés du Couple',
+    category: 'quiz',
+    tagline: 'Une grille dont les définitions sont vos anecdotes.',
+    emoji: '🔤',
+    reward: 45,
+  },
+  {
+    id: 'dessinez-devinez',
+    title: 'Dessinez & Devinez',
+    category: 'creative',
+    tagline: 'Pictionary sur un canvas tactile partagé.',
+    emoji: '✏️',
+    reward: 35,
+    async: true,
+  },
+  {
+    id: 'cadavre-exquis',
+    title: 'Cadavre Exquis',
+    category: 'creative',
+    tagline: 'Une histoire écrite phrase par phrase, à l’aveugle.',
+    emoji: '📜',
+    reward: 30,
+    async: true,
+  },
+  {
+    id: 'blind-test',
+    title: 'Blind Test Privé',
+    category: 'creative',
+    tagline: '10 secondes pour reconnaître vos chansons.',
+    emoji: '🎵',
+    reward: 30,
+  },
+  {
+    id: 'mimes',
+    title: 'Mimes audio / GIF',
+    category: 'creative',
+    tagline: 'Faire deviner avec un vocal ou trois emojis.',
+    emoji: '🎭',
+    reward: 30,
+    async: true,
+  },
+  {
+    id: 'tap-tap',
+    title: 'Bataille Tap-Tap',
+    category: 'reflex',
+    tagline: '10 secondes pour faire courir votre mascotte.',
+    emoji: '🏁',
+    reward: 25,
+  },
+  {
+    id: 'morpion',
+    title: 'Morpion 2.0',
+    category: 'reflex',
+    tagline: 'Le perdant accomplit un gage tout mignon.',
+    emoji: '⭕',
+    reward: 20,
+  },
+  {
+    id: 'puissance-4',
+    title: 'Puissance 4',
+    category: 'reflex',
+    tagline: 'Stratégie en tour par tour, même décalés.',
+    emoji: '🔴',
+    reward: 30,
+    async: true,
+  },
+  {
+    id: 'memory',
+    title: 'Memory Souvenirs',
+    category: 'reflex',
+    tagline: 'Vos Polaroid retournés, à retrouver par paires.',
+    emoji: '🃏',
+    reward: 30,
+  },
+  {
+    id: 'action-ou-verite',
+    title: 'Action ou Vérité',
+    category: 'mystery',
+    tagline: 'Roue interactive : Douceur, Vérité ou Gage.',
+    emoji: '🎡',
+    reward: 20,
+  },
+  {
+    id: 'code-secret',
+    title: 'Le Code Secret',
+    category: 'mystery',
+    tagline: 'Mastermind à 4 couleurs, en un minimum d’essais.',
+    emoji: '🔐',
+    reward: 40,
+  },
+  {
+    id: 'petit-bac',
+    title: 'Petit Bac Éclair',
+    category: 'mystery',
+    tagline: '4 mots, une lettre, 30 secondes.',
+    emoji: '⏱️',
+    reward: 35,
+  },
+];
+
+export function gameMeta(id: string) {
+  return games.find((game) => game.id === id);
+}

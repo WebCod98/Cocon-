@@ -1,0 +1,84 @@
+/* Les polices Fredoka et Nunito sont chargees depuis index.html de maniere
+   non bloquante : un reseau lent ne doit jamais retarder le premier rendu.
+   Les familles de repli (ui-rounded, system-ui) prennent le relais en
+   attendant, puis la bascule se fait avec font-display: swap. */
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+/* --- Thème jour : la palette d'origine de la maquette --- */
+:root {
+  --c-cream: 255 246 248;
+  --c-frost: 251 231 238;
+  --c-ice: 246 213 224;
+  --c-ink: 59 42 50;
+  --c-muted: 150 123 133;
+  --c-coral: 232 116 143;
+  --c-blush: 249 210 222;
+  --c-mint: 143 201 180;
+  --c-sun: 243 195 107;
+  --c-night: 74 47 60;
+  --theme-bar: #fff6f8;
+}
+
+/* --- Mode Sommeil Étoilé : mêmes classes, teintes nocturnes --- */
+:root[data-theme='night'] {
+  --c-cream: 39 28 44;
+  --c-frost: 26 18 31;
+  --c-ice: 61 44 68;
+  --c-ink: 246 232 239;
+  --c-muted: 167 145 176;
+  --c-coral: 240 140 164;
+  --c-blush: 74 46 67;
+  --c-mint: 127 196 172;
+  --c-sun: 233 185 95;
+  --c-night: 18 12 23;
+  --theme-bar: #1a121f;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  background-color: rgb(var(--c-frost));
+  color: rgb(var(--c-ink));
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  transition: background-color 0.6s ease, color 0.6s ease;
+}
+
+/* Le filtre rétro appliqué aux Polaroid 24 h. */
+.polaroid-filter {
+  filter: sepia(0.28) contrast(1.08) saturate(0.92) brightness(1.04);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Zone de dessin de « Dessinez & Devinez » : pas de scroll au doigt. */
+.touch-none {
+  touch-action: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

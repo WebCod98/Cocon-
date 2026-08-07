@@ -1,0 +1,59 @@
+{
+  "name": "Cocon — votre nid à distance",
+  "short_name": "Cocon",
+  "description": "L'application des couples à distance : une mascotte partagée, vos rituels du matin et du soir, un Polaroid éphémère de 24 h, votre compteur d'amour et 15 mini-jeux à deux.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#FBE7EE",
+  "theme_color": "#FFF6F8",
+  "categories": ["lifestyle", "social", "games"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mot du matin",
+      "short_name": "Rituels",
+      "description": "Écrire ou lire le message du jour",
+      "url": "/rituels",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Polaroid 24 h",
+      "short_name": "Polaroid",
+      "description": "Publier la photo du jour",
+      "url": "/polaroid",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "L'Arcade",
+      "short_name": "Arcade",
+      "description": "Lancer un mini-jeu à deux",
+      "url": "/arcade",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
