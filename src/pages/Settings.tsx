@@ -6,6 +6,7 @@ import {
   CloudOffIcon,
   CopyIcon,
   LogOutIcon,
+  RefreshCwIcon,
   TrashIcon,
   UsersIcon,
 } from 'lucide-react';
@@ -24,7 +25,23 @@ const themes: { id: ThemeMode; label: string; hint: string }[] = [
 ];
 
 export function Settings() {
-  const { doc, me, them, settings, cloud, patchSettings, setTheme, leave, hardReset } = useCouple();
+  const { doc, me, them, settings, cloud, cloudConfigured, enableSync, patchSettings, setTheme, leave, hardReset } =
+    useCouple();
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  /** Publie un Cocon créé avant que la synchronisation ne soit configurée. */
+  const repairSync = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    const result = await enableSync();
+    setSyncing(false);
+    if (!result.synced) {
+      setSyncError(
+        'Le serveur n’a pas répondu. Vérifiez que le script SQL a bien été exécuté dans Supabase, et que le projet n’est pas en pause.'
+      );
+    }
+  };
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -100,10 +117,34 @@ export function Settings() {
                 ? `Vos mots, photos et parties voyagent entre vos deux téléphones en temps réel. ${
                     doc.paired ? 'Les deux appareils sont reliés.' : 'En attente du second appareil.'
                   }`
-                : 'Tout reste sur cet appareil. La synchronisation ne fonctionne qu’entre les onglets de ce navigateur — votre partenaire aurait son propre Cocon.'}
+                : cloudConfigured
+                  ? 'Le serveur est configuré, mais ce Cocon n’y est pas encore enregistré — il a été créé avant. Votre partenaire ne peut donc pas vous rejoindre avec le code.'
+                  : 'Tout reste sur cet appareil. La synchronisation ne fonctionne qu’entre les onglets de ce navigateur — votre partenaire aurait son propre Cocon.'}
             </p>
           </div>
         </div>
+
+        {cloudConfigured && !cloud && (
+          <>
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={() => void repairSync()}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-paper disabled:opacity-40">
+              <RefreshCwIcon size={15} aria-hidden="true" />
+              {syncing ? 'Enregistrement…' : 'Activer la synchronisation'}
+            </button>
+            <p className="mt-2 text-[11px] leading-snug text-muted">
+              Rien n’est perdu : vos mots, vos photos et votre mascotte restent en place. Un nouveau
+              Code d’Amour peut être attribué — pensez à le redonner à votre partenaire.
+            </p>
+            {syncError && (
+              <p role="alert" className="mt-2 rounded-2xl bg-coral/15 px-3 py-2 text-[11px] font-semibold text-coral">
+                {syncError}
+              </p>
+            )}
+          </>
+        )}
       </SectionCard>
 
       <SectionCard title="Apparence" subtitle="Le Mode Sommeil Étoilé bascule toute l’interface">

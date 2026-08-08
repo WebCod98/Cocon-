@@ -85,6 +85,12 @@ export interface JoinInput {
   myTimeZone: string;
 }
 
+export type SignupResult = {
+  loveCode: string;
+  /** Faux quand le serveur est configuré mais n'a pas pu enregistrer le couple. */
+  synced: boolean;
+};
+
 export type JoinResult = { ok: true } | { ok: false; reason: 'not-found' | 'full' | 'offline' };
 
 /* --- API exposee --------------------------------------------------------- */
@@ -105,7 +111,11 @@ interface CoupleApi {
   toast: string | null;
 
   /* cycle de vie */
-  signup: (input: SignupInput) => string;
+  signup: (input: SignupInput) => Promise<SignupResult>;
+  /** Publie sur le serveur un Cocon créé avant l'activation de la synchro. */
+  enableSync: () => Promise<SignupResult>;
+  /** Les variables d'environnement Supabase sont présentes dans ce build. */
+  cloudConfigured: boolean;
   join: (input: JoinInput) => Promise<JoinResult>;
   /** Vrai quand un serveur de synchronisation est configure. */
   cloud: boolean;
@@ -225,6 +235,29 @@ function persistDoc(doc: CoupleDoc) {
   }
   writeJSON(key, { ...trimmed, notes: trimmed.notes.slice(0, 10) });
   return trimmed;
+}
+
+/**
+ * Enregistre le couple sur le serveur. Si les 6 chiffres sont deja pris, on en
+ * tire d'autres et on recommence — le couple n'etant pas encore apparie, changer
+ * son code ne coute rien. Un vrai probleme serveur, lui, arrete tout de suite.
+ */
+async function publishCouple(
+  doc: CoupleDoc,
+  secret: string,
+  attempts = 4
+): Promise<{ ok: boolean; doc: CoupleDoc }> {
+  let current = doc;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = await createRemote(current, secret);
+    if (result === 'created') return { ok: true, doc: current };
+    if (result === 'error') return { ok: false, doc: current };
+
+    removeKey(KEYS.doc(current.loveCode));
+    current = { ...current, loveCode: makeLoveCode() };
+    persistDoc(current);
+  }
+  return { ok: false, doc: current };
 }
 
 /* --- Provider ------------------------------------------------------------ */
@@ -412,7 +445,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
   /* --- Cycle de vie ------------------------------------------------------ */
 
   const signup = useCallback(
-    (input: SignupInput) => {
+    async (input: SignupInput): Promise<SignupResult> => {
       const loveCode = makeLoveCode();
       let fresh = createDoc({
         loveCode,
@@ -431,21 +464,57 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
 
       persistDoc(fresh);
 
-      // Quand un serveur est configure, le couple y est cree immediatement :
-      // c'est ce qui permettra a l'autre telephone de le retrouver avec le code.
-      const coupleSecret = cloudEnabled ? makeSecret() : undefined;
-      writeJSON(KEYS.session, { loveCode, slot: 'one', secret: coupleSecret } satisfies Session);
-      if (coupleSecret) {
-        setSecret(coupleSecret);
-        void createRemote(fresh, coupleSecret);
+      // Quand un serveur est configure, le couple y est enregistre tout de
+      // suite : sans cela, l'autre telephone ne pourra jamais le retrouver.
+      // On ATTEND le resultat — un echec silencieux laisserait l'utilisateur
+      // avec un code qui ne fonctionne nulle part.
+      let finalDoc = fresh;
+      let coupleSecret: string | undefined;
+      let synced = false;
+
+      if (cloudEnabled) {
+        const candidate = makeSecret();
+        const published = await publishCouple(fresh, candidate);
+        finalDoc = published.doc;
+        synced = published.ok;
+        if (published.ok) coupleSecret = candidate;
       }
 
+      writeJSON(
+        KEYS.session,
+        { loveCode: finalDoc.loveCode, slot: 'one', secret: coupleSecret } satisfies Session
+      );
+      if (coupleSecret) setSecret(coupleSecret);
+
       patchSettings({ slot: 'one' });
-      setDoc(fresh);
-      return loveCode;
+      setDoc(finalDoc);
+      return { loveCode: finalDoc.loveCode, synced };
     },
     [patchSettings]
   );
+
+  /**
+   * Repare le cas le plus courant : un Cocon cree avant que la synchronisation
+   * ne soit configuree. Il n'existe alors qu'en local, et le code ne mene nulle
+   * part. Ce bouton le publie sans rien perdre.
+   */
+  const enableSync = useCallback(async (): Promise<SignupResult> => {
+    const current = docRef.current;
+    if (!current) return { loveCode: '', synced: false };
+    if (!cloudEnabled) return { loveCode: current.loveCode, synced: false };
+
+    const candidate = makeSecret();
+    const published = await publishCouple(current, candidate);
+    if (!published.ok) return { loveCode: published.doc.loveCode, synced: false };
+
+    writeJSON(
+      KEYS.session,
+      { loveCode: published.doc.loveCode, slot: mySlot, secret: candidate } satisfies Session
+    );
+    setSecret(candidate);
+    setDoc(published.doc);
+    return { loveCode: published.doc.loveCode, synced: true };
+  }, [mySlot]);
 
   const join = useCallback(
     async (input: JoinInput): Promise<JoinResult> => {
@@ -1061,8 +1130,10 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       superHappy,
       toast,
       signup,
+      enableSync,
       join,
       cloud: cloudEnabled && Boolean(secret),
+      cloudConfigured: cloudEnabled,
       leave,
       hardReset,
       patchSettings,
@@ -1119,6 +1190,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       superHappy,
       toast,
       signup,
+      enableSync,
       join,
       secret,
       leave,

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+  AlertTriangleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   BellIcon,
@@ -8,6 +9,7 @@ import {
   CopyIcon,
   HeartHandshakeIcon,
   KeyRoundIcon,
+  RefreshCwIcon,
   SmartphoneIcon,
 } from 'lucide-react';
 import { Confetti } from '../components/Confetti';
@@ -29,7 +31,7 @@ const localTimeZone = () => {
 };
 
 export function Onboarding() {
-  const { doc, signup, join, patchSettings } = useSession();
+  const { doc, signup, enableSync, join, patchSettings, cloudConfigured } = useSession();
   // Inscription interrompue puis reprise : on repart a la derniere etape.
   const [step, setStep] = useState<Step>(() => (doc ? 'permissions' : 'welcome'));
   const [burst, setBurst] = useState(0);
@@ -50,12 +52,15 @@ export function Onboarding() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [synced, setSynced] = useState(true);
 
   const myZone = useMemo(() => findCity(myCity)?.timeZone ?? localTimeZone(), [myCity]);
   const partnerZone = useMemo(() => findCity(partnerCity)?.timeZone ?? 'America/Toronto', [partnerCity]);
 
-  const create = () => {
-    const generated = signup({
+  const create = async () => {
+    setCreating(true);
+    const result = await signup({
       myName: myName.trim(),
       myEmoji,
       myCity,
@@ -67,10 +72,21 @@ export function Onboarding() {
       since,
       withDemoContent: demoContent,
     });
-    setCode(generated);
+    setCreating(false);
+    setCode(result.loveCode);
+    setSynced(result.synced);
     setBurst((value) => value + 1);
     vibrate('success');
     setStep('code');
+  };
+
+  /** Nouvelle tentative d'enregistrement, depuis l'écran du code. */
+  const retryPublish = async () => {
+    setCreating(true);
+    const result = await enableSync();
+    setCreating(false);
+    if (result.loveCode) setCode(result.loveCode);
+    setSynced(result.synced);
   };
 
   const doJoin = async () => {
@@ -229,12 +245,41 @@ export function Onboarding() {
               </span>
             </span>
           </label>
-          <NextButton label="Créer notre Cocon" disabled={!since} onClick={create} />
+          <NextButton
+            label={creating ? 'Création en cours…' : 'Créer notre Cocon'}
+            disabled={creating || !since}
+            onClick={() => void create()} />
         </StepCard>
       )}
 
       {step === 'code' && (
         <StepCard title="Votre Code d’Amour">
+          {cloudConfigured && !synced && (
+            <div role="alert" className="mb-3 rounded-3xl border border-coral/50 bg-coral/10 p-3">
+              <p className="flex items-start gap-2 text-[12px] font-semibold leading-snug text-coral">
+                <AlertTriangleIcon size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                Ce code ne fonctionnera pas encore
+              </p>
+              <p className="mt-1.5 text-[11px] leading-snug text-ink">
+                Votre Cocon n’a pas pu être enregistré sur le serveur. Tant que ce n’est pas fait,
+                {' '}{partnerName || 'votre partenaire'} verra « Aucun Cocon ne correspond à ce code ».
+                Vérifiez que le script SQL a bien été exécuté dans Supabase, puis réessayez.
+              </p>
+              <button
+                type="button"
+                disabled={creating}
+                onClick={() => void retryPublish()}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-2.5 text-sm font-semibold text-paper disabled:opacity-40">
+                <RefreshCwIcon size={14} aria-hidden="true" />
+                {creating ? 'Nouvelle tentative…' : 'Réessayer l’enregistrement'}
+              </button>
+            </div>
+          )}
+          {cloudConfigured && synced && (
+            <p className="mb-3 rounded-2xl bg-mint/20 px-3 py-2 text-[11px] font-semibold text-ink">
+              ✅ Votre Cocon est enregistré — le code est utilisable sur l’autre téléphone.
+            </p>
+          )}
           <p className="text-sm leading-snug text-muted">
             Transmets ces 6 chiffres à {partnerName || 'ton/ta partenaire'}. Sur son téléphone, il/elle
             ouvre Cocon et choisit « J’ai déjà un code ».

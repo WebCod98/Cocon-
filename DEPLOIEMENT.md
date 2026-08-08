@@ -205,6 +205,17 @@ sur l'écran d'accueil.
 
 🎉 Des confettis confirment la liaison.
 
+> **Avant de transmettre le code, vérifiez le bandeau vert.** L'écran du Code d'Amour affiche
+> « ✅ Votre Cocon est enregistré » quand tout va bien. S'il affiche au contraire **« Ce code ne
+> fonctionnera pas encore »** en rouge, c'est que le serveur n'a pas répondu : le code serait
+> inutilisable. Cliquez **Réessayer l'enregistrement**, et si l'échec persiste, revérifiez les
+> étapes 3 (script SQL) et 8 (variables).
+
+> **Vous aviez déjà créé un Cocon avant de configurer Supabase ?** Il n'existe qu'en local, et son
+> code ne mène nulle part. Allez dans **Réglages** → **Synchronisation** → **Activer la
+> synchronisation**. Vos mots, photos et votre mascotte sont conservés ; seul le Code d'Amour peut
+> changer.
+
 ## 12. Le test qui prouve que tout fonctionne
 
 Sur le téléphone A, aller dans **Réglages** (l'engrenage en haut à droite).
@@ -238,7 +249,8 @@ L'app s'ouvre désormais en plein écran, sans barre de navigateur.
 | Symptôme | Cause | Solution |
 | --- | --- | --- |
 | Réglages affiche **« Mode local »** au lieu de « Synchronisation activée » | Les variables n'étaient pas là au moment du build | Netlify → **Site configuration** → **Environment variables** → vérifier les deux noms → puis **Deploys** → **Trigger deploy** → **Clear cache and deploy site** |
-| « Aucun Cocon ne correspond à ce code » | Même cause, ou le code a déjà été utilisé | Un code ne fonctionne **qu'une seule fois**. Le partenaire A doit refaire une inscription pour obtenir un code neuf |
+| « Aucun Cocon ne correspond à ce code » | Le Cocon n'a jamais été enregistré sur le serveur — le plus souvent parce qu'il a été créé **avant** que les variables ne soient en place | Sur le téléphone A : **Réglages** → section **Synchronisation** → **Activer la synchronisation**. Un nouveau code est attribué, à redonner au partenaire. Rien n'est perdu |
+| « Aucun Cocon… » alors que la synchro est bien activée | Le code a déjà servi | Un code ne fonctionne **qu'une seule fois**, par sécurité. Utilisez **Activer la synchronisation** pour en obtenir un neuf |
 | « Impossible de joindre le serveur » | Projet Supabase en pause, ou pas de réseau | Ouvrir le tableau de bord Supabase : s'il est en pause, cliquer **Restore** |
 | Page blanche | Le build a échoué | Netlify → **Deploys** → cliquer le dernier → lire le journal en rouge |
 | Erreur 404 en rafraîchissant `/agenda` | Le fichier `netlify.toml` n'a pas été pris en compte | Vérifier que vous déployez bien la bonne branche |

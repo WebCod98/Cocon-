@@ -50,15 +50,23 @@ export function makeSecret() {
 
 /* --- Operations ---------------------------------------------------------- */
 
-export async function createRemote(doc: CoupleDoc, secret: string): Promise<boolean> {
+/**
+ * `taken` : les 6 chiffres sont deja pris par un autre couple — il suffit d'en
+ * tirer d'autres. `error` : serveur injoignable ou schema SQL absent, et la
+ * distinction compte : dans un cas on reessaie, dans l'autre on previent.
+ */
+export type CreateResult = 'created' | 'taken' | 'error';
+
+export async function createRemote(doc: CoupleDoc, secret: string): Promise<CreateResult> {
   const client = await getClient();
-  if (!client) return false;
+  if (!client) return 'error';
   const { data, error } = await client.rpc('cocon_create', {
     p_code: doc.loveCode,
     p_secret: secret,
     p_doc: doc,
   });
-  return !error && data === true;
+  if (error) return 'error';
+  return data === true ? 'created' : 'taken';
 }
 
 export type ClaimResult =
