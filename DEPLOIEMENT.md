@@ -120,18 +120,60 @@ Netlify affiche alors un écran de configuration.
 clés ne sont pas là **avant** de cliquer sur Deploy, elles ne seront pas dans l'application, et la
 synchronisation ne marchera pas.
 
-Sur ce même écran, avant de déployer :
+### 🛑 D'abord, levons LE malentendu
+
+Le mot « clé » désigne **deux choses différentes**, et c'est la source de confusion numéro un :
+
+| Le mot | Ce que ça veut dire ici |
+| --- | --- |
+| Le champ **« Key »** de Netlify | le **nom** de la variable. Vous le **tapez vous-même**. |
+| Votre **clé publique** Supabase | une **valeur**. Elle va dans le champ **« Value »**. |
+
+Votre clé Supabase ne va **jamais** dans le champ « Key ». Jamais.
+
+### Les deux variables à créer
+
+**Variable 1 — l'adresse de votre base**
+
+| Champ Netlify | Ce que vous y mettez |
+| --- | --- |
+| **Key** | `VITE_SUPABASE_URL` — à recopier à la main |
+| **Value** | le *Project URL* de l'étape 5, du type `https://abcdefghijklm.supabase.co` |
+
+**Variable 2 — votre clé publique**
+
+| Champ Netlify | Ce que vous y mettez |
+| --- | --- |
+| **Key** | `VITE_SUPABASE_ANON_KEY` — à recopier à la main |
+| **Value** | **votre clé publique**, celle qui commence par `eyJhbGci…` ou `sb_publishable_…` |
+
+Comment faire, concrètement :
 
 1. Cliquer **Add environment variables** (ou **Show advanced** → **New variable**)
-2. Ajouter la **première** :
-   - **Key** : `VITE_SUPABASE_URL`
-   - **Value** : le *Project URL* copié à l'étape 5
-3. Cliquer **Add environment variable** et ajouter la **seconde** :
-   - **Key** : `VITE_SUPABASE_ANON_KEY`
-   - **Value** : la clé publique copiée à l'étape 5
+2. Remplir la variable 1, puis cliquer **Add environment variable** et remplir la variable 2
 
-Vérifiez bien l'orthographe des noms : ils sont sensibles à la casse, et le préfixe `VITE_` est
+Vérifiez l'orthographe des noms : ils sont sensibles à la casse, et le préfixe `VITE_` est
 obligatoire.
+
+### Si le champ « Value » n'apparaît pas
+
+Netlify fait évoluer cet écran. Sur les versions récentes, la zone de saisie de la valeur ne
+s'affiche qu'**après** avoir choisi **« Same value for all deploy contexts »**. Cochez cette option
+et le champ apparaît.
+
+### 🆘 La sortie de secours
+
+Si cet écran vous résiste, **sautez simplement cette étape** — vous la referez au calme après :
+
+1. Cliquer **Deploy** tout de suite, sans variables. Le site se déploiera très bien, en mode local.
+2. Une fois le site en ligne : **Site configuration** → **Environment variables** → **Add a
+   variable** → **Add a single variable**. Cet écran-là est nettement plus clair, avec « Key » et
+   « Value » bien séparés.
+3. Ajouter les deux variables du tableau ci-dessus.
+4. **Indispensable :** aller dans **Deploys** → **Trigger deploy** → **Clear cache and deploy site**.
+
+Sans cette dernière étape, les variables ne servent à rien : elles ne sont lues qu'au moment de la
+construction du site.
 
 ## 9. Déployer
 
