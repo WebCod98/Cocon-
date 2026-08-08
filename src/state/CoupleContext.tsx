@@ -30,10 +30,12 @@ import {
 } from '../lib/sync';
 import {
   claimRemote,
+  cloudConfig,
   cloudEnabled,
   createRemote,
   createSupabaseTransport,
   makeSecret,
+  type CloudConfig,
 } from '../lib/cloud';
 import { makeLoveCode, uid } from '../lib/id';
 import { setHapticsEnabled, vibrate } from '../lib/haptics';
@@ -116,6 +118,8 @@ interface CoupleApi {
   enableSync: () => Promise<SignupResult>;
   /** Les variables d'environnement Supabase sont présentes dans ce build. */
   cloudConfigured: boolean;
+  /** Diagnostic de configuration, affiché dans les Réglages. */
+  cloudSetup: CloudConfig;
   join: (input: JoinInput) => Promise<JoinResult>;
   /** Vrai quand un serveur de synchronisation est configure. */
   cloud: boolean;
@@ -1134,6 +1138,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       join,
       cloud: cloudEnabled && Boolean(secret),
       cloudConfigured: cloudEnabled,
+      cloudSetup: cloudConfig(),
       leave,
       hardReset,
       patchSettings,

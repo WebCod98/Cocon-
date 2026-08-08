@@ -25,7 +25,7 @@ const themes: { id: ThemeMode; label: string; hint: string }[] = [
 ];
 
 export function Settings() {
-  const { doc, me, them, settings, cloud, cloudConfigured, enableSync, patchSettings, setTheme, leave, hardReset } =
+  const { doc, me, them, settings, cloud, cloudSetup, enableSync, patchSettings, setTheme, leave, hardReset } =
     useCouple();
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -117,14 +117,36 @@ export function Settings() {
                 ? `Vos mots, photos et parties voyagent entre vos deux téléphones en temps réel. ${
                     doc.paired ? 'Les deux appareils sont reliés.' : 'En attente du second appareil.'
                   }`
-                : cloudConfigured
+                : cloudSetup.state === 'ready'
                   ? 'Le serveur est configuré, mais ce Cocon n’y est pas encore enregistré — il a été créé avant. Votre partenaire ne peut donc pas vous rejoindre avec le code.'
-                  : 'Tout reste sur cet appareil. La synchronisation ne fonctionne qu’entre les onglets de ce navigateur — votre partenaire aurait son propre Cocon.'}
+                  : cloudSetup.state === 'off'
+                    ? 'Tout reste sur cet appareil. La synchronisation ne fonctionne qu’entre les onglets de ce navigateur — votre partenaire aurait son propre Cocon.'
+                    : 'La synchronisation est mal configurée : voir le détail ci-dessous.'}
             </p>
           </div>
         </div>
 
-        {cloudConfigured && !cloud && (
+        {(cloudSetup.state === 'incomplete' || cloudSetup.state === 'malformed') && (
+          <div role="alert" className="mt-3 rounded-3xl border border-coral/50 bg-coral/10 p-3">
+            <p className="text-[12px] font-semibold text-coral">⚠️ Configuration incomplète</p>
+            <p className="mt-1 text-[11px] leading-snug text-ink">
+              {cloudSetup.state === 'incomplete' ? (
+                <>
+                  Il manque la variable <strong>{cloudSetup.missing}</strong> côté hébergeur. Les deux
+                  vont par paire : une adresse sans clé — ou une clé sans adresse — ne permet rien.
+                </>
+              ) : (
+                cloudSetup.problem
+              )}
+            </p>
+            <p className="mt-1.5 text-[11px] leading-snug text-muted">
+              Ajoutez-la dans Netlify (<em>Site configuration → Environment variables</em>), puis
+              relancez un déploiement avec <em>Clear cache and deploy site</em>.
+            </p>
+          </div>
+        )}
+
+        {cloudSetup.state === 'ready' && !cloud && (
           <>
             <button
               type="button"

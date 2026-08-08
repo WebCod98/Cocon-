@@ -131,49 +131,102 @@ Le mot « clé » désigne **deux choses différentes**, et c'est la source de c
 
 Votre clé Supabase ne va **jamais** dans le champ « Key ». Jamais.
 
-### Les deux variables à créer
+### Pourquoi DEUX variables, et pas une
 
-**Variable 1 — l'adresse de votre base**
+C'est l'erreur qui bloque tout le monde. L'application a besoin de deux informations
+**indissociables** :
 
-| Champ Netlify | Ce que vous y mettez |
+| Variable | Ce qu'elle dit à l'app |
 | --- | --- |
-| **Key** | `VITE_SUPABASE_URL` — à recopier à la main |
-| **Value** | le *Project URL* de l'étape 5, du type `https://abcdefghijklm.supabase.co` |
+| `VITE_SUPABASE_URL` | **où** se trouve votre base — l'adresse |
+| `VITE_SUPABASE_ANON_KEY` | **avec quel droit** lui parler — la clé |
 
-**Variable 2 — votre clé publique**
+Une adresse sans clé, ou une clé sans adresse, ne sert à rien : c'est comme avoir l'adresse d'une
+maison sans la clé de la porte. **Si une seule des deux est renseignée, Cocon repasse
+automatiquement en mode local** — et votre partenaire verra « Aucun Cocon ne correspond à ce code ».
 
-| Champ Netlify | Ce que vous y mettez |
+L'application vous le signale désormais : Réglages → Synchronisation affiche « ⚠️ Configuration
+incomplète » en nommant celle qui manque.
+
+### Méthode A — la plus sûre : coller les deux d'un coup
+
+Netlify sait lire un bloc de texte au format `.env`. C'est **un seul copier-coller au lieu de quatre
+champs à remplir**, donc beaucoup moins d'occasions de se tromper.
+
+1. Cliquer sur la **flèche ⌄** du bouton **Add environment variables**
+2. Choisir **Import from a .env file** (ou *Import from .env*)
+3. Dans la zone de texte, coller ceci **en remplaçant les deux valeurs par les vôtres** :
+
+```
+VITE_SUPABASE_URL=https://VOTRE-IDENTIFIANT.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_VOTRE_CLE
+```
+
+4. Cliquer **Import variables**
+
+⚠️ Aucun espace autour du `=`, aucun guillemet, une variable par ligne.
+
+### Méthode B — les deux lignes à la main
+
+Si l'import `.env` n'apparaît pas sur votre écran :
+
+1. Cliquer **Add environment variables** → une première ligne apparaît avec **Key** et **Value**
+
+**Ligne 1**
+
+| Champ | Contenu |
 | --- | --- |
-| **Key** | `VITE_SUPABASE_ANON_KEY` — à recopier à la main |
-| **Value** | **votre clé publique**, celle qui commence par `eyJhbGci…` ou `sb_publishable_…` |
+| **Key** | `VITE_SUPABASE_URL` |
+| **Value** | `https://VOTRE-IDENTIFIANT.supabase.co` |
 
-Comment faire, concrètement :
+2. Cliquer **New variable** (le bouton gris sous la ligne) → une **deuxième ligne** apparaît
 
-1. Cliquer **Add environment variables** (ou **Show advanced** → **New variable**)
-2. Remplir la variable 1, puis cliquer **Add environment variable** et remplir la variable 2
+**Ligne 2**
 
-Vérifiez l'orthographe des noms : ils sont sensibles à la casse, et le préfixe `VITE_` est
-obligatoire.
+| Champ | Contenu |
+| --- | --- |
+| **Key** | `VITE_SUPABASE_ANON_KEY` |
+| **Value** | votre clé `sb_publishable_…` ou `eyJhbGci…` |
+
+À la fin, vous devez voir **deux lignes**, pas une. C'est le point à vérifier avant de déployer.
+
+> **Rappel :** le champ « Key » attend le **nom** de la variable, que vous tapez vous-même. Votre clé
+> Supabase est une **valeur** : elle va toujours dans « Value ».
 
 ### Si le champ « Value » n'apparaît pas
 
-Netlify fait évoluer cet écran. Sur les versions récentes, la zone de saisie de la valeur ne
-s'affiche qu'**après** avoir choisi **« Same value for all deploy contexts »**. Cochez cette option
-et le champ apparaît.
+Sur certaines versions, la zone de saisie ne s'affiche qu'**après** avoir choisi **« Same value for
+all deploy contexts »**. Cochez cette option et le champ apparaît.
 
 ### 🆘 La sortie de secours
 
-Si cet écran vous résiste, **sautez simplement cette étape** — vous la referez au calme après :
+Si cet écran vous résiste, **sautez cette étape** — vous la referez au calme après :
 
 1. Cliquer **Deploy** tout de suite, sans variables. Le site se déploiera très bien, en mode local.
 2. Une fois le site en ligne : **Site configuration** → **Environment variables** → **Add a
-   variable** → **Add a single variable**. Cet écran-là est nettement plus clair, avec « Key » et
-   « Value » bien séparés.
-3. Ajouter les deux variables du tableau ci-dessus.
+   variable**. Cet écran est nettement plus clair, et propose lui aussi l'import `.env`.
+3. Ajouter les **deux** variables.
 4. **Indispensable :** aller dans **Deploys** → **Trigger deploy** → **Clear cache and deploy site**.
 
 Sans cette dernière étape, les variables ne servent à rien : elles ne sont lues qu'au moment de la
 construction du site.
+
+### ✅ Vérifier avant d'aller plus loin
+
+Trois contrôles, dans l'ordre :
+
+1. **Dans Netlify** — *Site configuration → Environment variables* liste bien **deux** lignes, aux
+   noms exacts `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
+2. **Dans le journal de déploiement** — le dernier déploiement est bien **postérieur** à l'ajout des
+   variables. Sinon : *Clear cache and deploy site*.
+3. **Dans l'app** — ouvrez le site, puis **Réglages** → section **Synchronisation**. C'est elle qui
+   dit la vérité :
+
+| Ce que vous lisez | Ce que ça veut dire |
+| --- | --- |
+| ☁️ **Synchronisation activée** | tout est bon |
+| ⚠️ **Configuration incomplète** | il n'y a qu'une variable sur deux — le nom manquant est affiché |
+| 🚫 **Mode local** | aucune variable n'est arrivée jusqu'au build : relancez avec *Clear cache* |
 
 ## 9. Déployer
 

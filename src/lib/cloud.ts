@@ -18,6 +18,37 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const cloudEnabled = Boolean(url && anonKey);
 
+/**
+ * Diagnostic de configuration.
+ *
+ * Les deux variables vont par paire : une adresse sans cle, ou une cle sans
+ * adresse, ne permet rien. N'en renseigner qu'une est l'erreur la plus courante
+ * — et sans ce diagnostic, l'app repasserait silencieusement en mode local.
+ */
+export type CloudConfig =
+  | { state: 'off' }
+  | { state: 'incomplete'; missing: string }
+  | { state: 'malformed'; problem: string }
+  | { state: 'ready' };
+
+export function cloudConfig(): CloudConfig {
+  if (!url && !anonKey) return { state: 'off' };
+  if (url && !anonKey) return { state: 'incomplete', missing: 'VITE_SUPABASE_ANON_KEY' };
+  if (!url && anonKey) return { state: 'incomplete', missing: 'VITE_SUPABASE_URL' };
+
+  const address = (url as string).trim();
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(address.replace(/\/$/, ''))) {
+    return {
+      state: 'malformed',
+      problem: `VITE_SUPABASE_URL doit ressembler à https://xxxxx.supabase.co — valeur reçue : « ${address.slice(0, 48)} »`,
+    };
+  }
+  if ((anonKey as string).trim().length < 20) {
+    return { state: 'malformed', problem: 'VITE_SUPABASE_ANON_KEY semble tronquée.' };
+  }
+  return { state: 'ready' };
+}
+
 let clientPromise: Promise<SupabaseClient | null> | null = null;
 
 function getClient(): Promise<SupabaseClient | null> {
